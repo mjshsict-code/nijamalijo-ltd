@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId
+    // Fields:
+    //   - uid: string (required) - Unique user ID
+    //   - email: string (required) - User email address
+    //   - name: string (required) - Full name of the user
+    //   - role: string (required, enum: ['admin', 'client']) - User role
+    //   - createdAt: string (required, date-time) - Account creation timestamp
+    //
+    // Collection: appointments
+    // Document ID: appointmentId
+    // Fields:
+    //   - userId: string (required) - ID of the user who booked the appointment
+    //   - department: string (required) - Engineering department
+    //   - date: string (required) - Appointment date
+    //   - time: string (required) - Appointment time
+    //   - status: string (required, enum: ['pending', 'confirmed', 'completed', 'cancelled']) - Appointment status
+    //   - description: string (optional) - Project description
+    //   - createdAt: string (required, date-time) - Booking timestamp
+    //
+    // Collection: reports
+    // Document ID: reportId
+    // Fields:
+    //   - userId: string (required) - ID of the user who owns the report
+    //   - appointmentId: string (optional) - ID of the related appointment
+    //   - fileName: string (required) - Name of the uploaded file
+    //   - fileUrl: string (required, uri) - URL to the file
+    //   - uploadedAt: string (required, date-time) - Upload timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "nijamalijo@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'name', 'role', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.role in ['admin', 'client'] &&
+             data.createdAt is string;
+    }
+
+    function isValidAppointment(data) {
+      return data.keys().hasAll(['userId', 'department', 'date', 'time', 'status', 'createdAt']) &&
+             data.userId is string &&
+             data.department is string && data.department.size() > 0 &&
+             data.date is string &&
+             data.time is string &&
+             data.status in ['pending', 'confirmed', 'completed', 'cancelled'] &&
+             data.createdAt is string;
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll(['userId', 'fileName', 'fileUrl', 'uploadedAt']) &&
+             data.userId is string &&
+             data.fileName is string && data.fileName.size() > 0 &&
+             data.fileUrl is string && data.fileUrl.matches("^https?://.*") &&
+             data.uploadedAt is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                      ((isOwner(userId) && request.resource.data.role == 'client') || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                      ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidAppointment(request.resource.data) && 
+                      (isOwner(request.resource.data.userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidAppointment(request.resource.data) && 
+                      ((isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId && 
+                        request.resource.data.status == resource.data.status) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidReport(request.resource.data) && 
+                      (isOwner(request.resource.data.userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidReport(request.resource.data) && 
+                      ((isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+  }
+}

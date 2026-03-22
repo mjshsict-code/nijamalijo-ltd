@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "name": { "type": "string", "description": "Full name of the user" },
+        "role": { "type": "string", "enum": ["admin", "client"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
+      },
+      "required": ["uid", "email", "name", "role", "createdAt"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Engineering consultation appointment",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user who booked the appointment" },
+        "department": { "type": "string", "description": "Engineering department" },
+        "date": { "type": "string", "description": "Appointment date" },
+        "time": { "type": "string", "description": "Appointment time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"], "description": "Appointment status" },
+        "description": { "type": "string", "description": "Project description" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Booking timestamp" }
+      },
+      "required": ["userId", "department", "date", "time", "status", "createdAt"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Project report file information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user who owns the report" },
+        "appointmentId": { "type": "string", "description": "ID of the related appointment" },
+        "fileName": { "type": "string", "description": "Name of the uploaded file" },
+        "fileUrl": { "type": "string", "format": "uri", "description": "URL to the file" },
+        "uploadedAt": { "type": "string", "format": "date-time", "description": "Upload timestamp" }
+      },
+      "required": ["userId", "fileName", "fileUrl", "uploadedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile collection"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Appointments collection"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Reports collection"
+    }
+  }
+}
